@@ -1,6 +1,6 @@
 FROM alpine:3.21.2 as build
 
-ARG SQUID_VER=6.10
+ARG SQUID_VER=6.12
 
 RUN set -x && \
 	apk add --no-cache  \
@@ -109,6 +109,11 @@ RUN sed -i '1s;^;include /etc/squid/conf.d/*.conf\n;' /etc/squid/squid.conf && \
 FROM alpine:3.21.2
 	
 ENV SQUID_CONFIG_FILE /etc/squid/squid.conf
+ENV SQUID_CERT_DIR /etc/squid-cert
+ENV CERT_CN=squid.local \
+    CERT_ORG=squid \
+    CERT_OU=squid \
+    CERT_COUNTRY=US 
 ENV TZ Europe/Moscow
 
 RUN set -x && \
@@ -120,7 +125,9 @@ RUN apk add --no-cache \
 		heimdal-libs \
 		libcap \
 		libltdl \
-		tzdata
+		tzdata	\
+		aws-cli \
+		openssl
 
 COPY --from=build /etc/squid/ /etc/squid/
 COPY --from=build /usr/lib/squid/ /usr/lib/squid/
@@ -133,7 +140,8 @@ COPY --chmod=755 run.sh /
 RUN install -d -o squid -g squid \
 		/var/cache/squid \
 		/var/log/squid \
-		/var/run/squid && \
+		/var/run/squid \
+		/etc/squid-cert && \
 	chmod +x /usr/lib/squid/* && \
 	install -d -m 755 -o squid -g squid \
 		/etc/squid/conf.d \
@@ -143,7 +151,10 @@ COPY squid-log.conf /etc/squid/conf.d.tail/
 
 VOLUME ["/var/cache/squid"]
 EXPOSE 3128/tcp
+EXPOSE 4128/tcp
+
 
 USER squid
 
 CMD ["/run.sh"]
+
